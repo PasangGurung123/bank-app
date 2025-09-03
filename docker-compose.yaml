@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:17.6
+    container_name: postgres_sql
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: banking_application
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
