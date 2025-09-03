@@ -38,7 +38,11 @@ package com.bank.bank_app.service.impl;
 import com.bank.bank_app.dto.AccountResponseDT0;
 import com.bank.bank_app.exception.AccountNotFoundException;
 import com.bank.bank_app.model.Account;
+import com.bank.bank_app.model.Entry;
+import com.bank.bank_app.model.Transfer;
 import com.bank.bank_app.repository.AccountRepository;
+import com.bank.bank_app.repository.EntryRepository;
+import com.bank.bank_app.repository.TransferRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -56,10 +60,19 @@ public class AccountServiceImplTest {
     @Mock
     private AccountRepository accountRepository;
 
+    @Mock
+    private EntryRepository entryRepository;
+
+    @Mock
+    private TransferRepository transferRepository;
+
     @InjectMocks
     private AccountServiceImpl accountService;
 
     private Account account;
+
+    private Account fromAccount;
+    private Account toAccount;
 
     @BeforeEach
     void setUp() {
@@ -70,6 +83,94 @@ public class AccountServiceImplTest {
                 .owner("John Doe")
                 .balance(BigDecimal.valueOf(1000.00))
                 .build();
+
+
+        fromAccount = Account.builder()
+                .id(2L)
+                .owner("Pasang Gurung")
+                .balance(BigDecimal.valueOf(1000.00))
+                .build();
+
+        toAccount = Account.builder()
+                .id(3L)
+                .owner("Kaushal Gurung")
+                .balance(BigDecimal.valueOf(500.00))
+                .build();
+    }
+
+    @Test
+    void testSuccessfulTransfers() {
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findById(3L)).thenReturn(Optional.of(account));
+        when(accountRepository.save(any(Account.class))).thenAnswer(i -> i.getArgument(0));
+        when(entryRepository.save(any(Entry.class))).thenAnswer(i -> i.getArgument(0));
+        when(transferRepository.save(any(Transfer.class))).thenAnswer(i -> i.getArgument(0));
+
+        AccountResponseDT0 accountResponseDT0 = accountService.transfer(2L, 3L, BigDecimal.valueOf(200.00));
+
+        assertNotNull(accountResponseDT0);
+        assertEquals(BigDecimal.valueOf(800.00), accountResponseDT0.balance());
+
+        verify(accountRepository,times(2)).save(any(Account.class));
+        verify(entryRepository,times(2)).save(any(Entry.class));
+        verify(transferRepository,times(1)).save(any(Transfer.class));
+
+    }
+
+    @Test
+    void testTransferInsufficientFunds(){
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findById(3L)).thenReturn(Optional.of(account));
+
+        Exception exception = assertThrows(IllegalArgumentException.class,
+                () -> accountService.transfer(2L, 3L, BigDecimal.valueOf(10000.00)));
+
+        assertEquals("Insufficient funds", exception.getMessage());
+
+        verify(accountRepository, never()).save(fromAccount);
+        verify(entryRepository, never()).save(any(Entry.class));
+        verify(transferRepository, never()).save(any(Transfer.class));
+    }
+
+    @Test
+    void testTransferNegativeAmount() {
+        when(accountRepository.findById(1L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(toAccount));
+
+        Exception exception = assertThrows(IllegalArgumentException.class, () ->
+                accountService.transfer(1L, 2L, BigDecimal.valueOf(-100.00)));
+
+        assertEquals("Transfer amount must be greater than zero", exception.getMessage());
+        verify(accountRepository, never()).save(any(Account.class));
+        verify(entryRepository, never()).save(any(Entry.class));
+        verify(transferRepository, never()).save(any(Transfer.class));
+    }
+
+    @Test
+    void testTransferFromAccountNotFound() {
+        when(accountRepository.findById(2L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(AccountNotFoundException.class, () ->
+                accountService.transfer(2L, 3L, BigDecimal.valueOf(100.00)));
+
+        assertEquals("Account not found with id: 2", exception.getMessage());
+        verify(accountRepository, never()).save(any(Account.class));
+        verify(entryRepository, never()).save(any(Entry.class));
+        verify(transferRepository, never()).save(any(Transfer.class));
+    }
+
+    @Test
+    void testTransferToAccountNotFound() {
+        when(accountRepository.findById(2L)).thenReturn(Optional.of(fromAccount));
+        when(accountRepository.findById(3L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(AccountNotFoundException.class, () ->
+                accountService.transfer(2L, 3L, BigDecimal.valueOf(100.00)));
+
+        assertEquals("Account not found with id: 3", exception.getMessage());
+        verify(accountRepository, never()).save(any(Account.class));
+        verify(entryRepository, never()).save(any(Entry.class));
+        verify(transferRepository, never()).save(any(Transfer.class));
     }
 
     @Test
