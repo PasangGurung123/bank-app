@@ -51,7 +51,6 @@ The application provides descriptive errors via a **GlobalExceptionHandler**:
 
 - `AccountNotFoundException` → `404 NOT FOUND`  
 - `IllegalArgumentException` (invalid amount, insufficient funds, etc.) → `400 BAD REQUEST`  
-- `MethodArgumentNotValidException` (invalid request body, validation errors) → `422 UNPROCESSABLE ENTITY`  
 
 ---
 
